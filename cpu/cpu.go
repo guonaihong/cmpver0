@@ -10,8 +10,7 @@ import (
 )
 
 type prime struct {
-	start int
-	end   int
+	i int
 }
 
 type cpu struct {
@@ -21,21 +20,21 @@ type cpu struct {
 	maxPrime   int
 }
 
-func calPrime(start, end int) {
-	for i := start; i < end; i++ {
-		t := int(math.Sqrt(float64(i)))
+func calPrime(i int) {
+	if i < 3 {
+		i = 3
+	}
 
-		l := 2
-		for ; i <= t; l++ {
-			if t%l == 0 {
-				break
-			}
-		}
+	t := int(math.Sqrt(float64(i)))
 
-		if l > t {
-			fmt.Printf("%d\n", t)
+	j := 2
+	for ; j <= t; j++ {
+		if i%j == 0 {
+			return
 		}
 	}
+
+	//fmt.Printf("%d\n", i)
 }
 
 func (c *cpu) run() {
@@ -50,15 +49,9 @@ func (c *cpu) run() {
 			wg.Done()
 		}()
 
-		step := c.maxPrime % c.maxThreads
-		for i := 0; i < c.maxPrime; i += step {
+		for i := 3; i < c.maxPrime; i++ {
 
-			end := i + step
-			if end > c.maxPrime {
-				end = c.maxPrime
-			}
-
-			c.task <- prime{start: i, end: end}
+			c.task <- prime{i: i}
 		}
 	}()
 
@@ -68,11 +61,15 @@ func (c *cpu) run() {
 		go func() {
 			defer wg.Done()
 			for v := range c.task {
-				calPrime(v.start, v.end)
+				calPrime(v.i)
 			}
 
 		}()
 	}
+}
+
+func (c *cpu) report() {
+	fmt.Printf("Doing CPU performance benchmark\n")
 }
 
 func Main(name string, args []string) {
@@ -96,4 +93,5 @@ func Main(name string, args []string) {
 	}
 
 	c.run()
+	c.report()
 }
