@@ -1,6 +1,12 @@
 package memory
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/guonaihong/flag"
+	"github.com/guonaihong/gutil/file"
+	"strings"
+	"sync/atomic"
+)
 
 type operType int
 
@@ -18,6 +24,7 @@ const (
 )
 
 type memory struct {
+	buffer     []int64
 	blockSize  int
 	totalSize  int
 	maxThreads int
@@ -32,9 +39,9 @@ func operS2N(oper string) (operType, error) {
 	case "write":
 		return write, nil
 	case "none":
-		return nono, nil
+		return none, nil
 	default:
-		return fmt.Errorf("Invalid value for memory-oper: %s", oper)
+		return none, fmt.Errorf("Invalid value for memory-oper: %s", oper)
 	}
 }
 
@@ -45,8 +52,36 @@ func modeS2N(mode string) (modeType, error) {
 	case "rnd":
 		return rnd, nil
 	default:
-		return fmt.Errorf("Invalid value for memory-access-mode: %s", oper)
+		return rnd, fmt.Errorf("Invalid value for memory-access-mode: %s", mode)
 	}
+}
+
+func (m *memory) rndNone() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+	}
+}
+
+func (m *memory) seqNone() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+	}
+}
+
+func (m *memory) rndRead() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+		atomic.LoadInt64(&m.buffer[i])
+	}
+}
+
+func (m *memory) seqRead() {
+}
+
+func (m *memory) rndWrite() {
+}
+
+func (m *memory) seqWrite() {
+}
+
+func (m *memory) run() {
 }
 
 func Main(name string, args []string) {
@@ -60,26 +95,42 @@ func Main(name string, args []string) {
 
 	commandlLine.Parse(args)
 
-	var oper operType
-	var mode modeType
-	var err error
-
-	if oper, err = operS2N(*memoryOper); err != nil {
-		fmt.Printf("%s\n", err)
-		commandlLine.Usage()
-		return
-	}
-
-	if mode, err = modeS2N(*accessMode); err != nil {
-		fmt.Printf("%s\n", err)
-		commandlLine.Usage()
-		return
-	}
-
 	mem := memory{
 		maxThreads: *maxThreads,
-		memoryOper: oper,
-		accessMode: mode,
 	}
 
+	if oper, err := operS2N(*memoryOper); err != nil {
+		fmt.Printf("%s\n", err)
+		commandlLine.Usage()
+		return
+	} else {
+		mem.memoryOper = oper
+	}
+
+	if mode, err := modeS2N(*accessMode); err != nil {
+		fmt.Printf("%s\n", err)
+		commandlLine.Usage()
+		return
+	} else {
+		mem.accessMode = mode
+	}
+
+	if blockSize0, err := file.ParseSize(*blockSize); err != nil {
+		fmt.Printf("Invalid value for memory-block-size %s\n", *blockSize)
+		commandlLine.Usage()
+		return
+	} else {
+		mem.blockSize = int(blockSize0)
+		mem.buffer = make([]int64, blockSize0/8)
+	}
+
+	if totalSize0, err := file.ParseSize(*totalSize); err != nil {
+		fmt.Printf("Invalid value for memory-total-size %s\n", *totalSize)
+		commandlLine.Usage()
+		return
+	} else {
+		mem.totalSize = int(totalSize0)
+	}
+
+	mem.run()
 }
