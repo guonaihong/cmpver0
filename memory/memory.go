@@ -68,17 +68,24 @@ func (m *memory) seqNone() {
 
 func (m *memory) rndRead() {
 	for i, l := 0, len(m.buffer); i < l; i++ {
-		atomic.LoadInt64(&m.buffer[i])
 	}
 }
 
 func (m *memory) seqRead() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+		atomic.LoadInt64(&m.buffer[i])
+	}
 }
 
 func (m *memory) rndWrite() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+	}
 }
 
 func (m *memory) seqWrite() {
+	for i, l := 0, len(m.buffer); i < l; i++ {
+		atomic.StoreInt64(&m.buffer[i], int64(i))
+	}
 }
 
 func (m *memory) run() {
