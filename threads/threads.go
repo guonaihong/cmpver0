@@ -1,7 +1,10 @@
-package main
+package threads
 
 import (
 	"github.com/guonaihong/flag"
+	"runtime"
+	"sync"
+	"sync/atomic"
 )
 
 type threads struct {
@@ -9,9 +12,41 @@ type threads struct {
 	maxRequests  int
 	threadYields int
 	threadlocks  int
+	count        int32
+	mutex        []sync.Mutex
 }
 
 func (t *threads) run() {
+
+	work := make(chan struct{}, 100)
+	var wg sync.WaitGroup
+
+	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < t.maxRequests; i++ {
+			work <- struct{}{}
+		}
+		close(work)
+	}()
+
+	wg.Add(t.maxThreads)
+	for i := 0; i < t.maxThreads; i++ {
+		go func() {
+			defer wg.Done()
+			for range work {
+				newCount := atomic.AddInt32(&t.count, 1)
+				newCount = newCount % int32(t.threadlocks)
+				for j := 0; i < t.threadYields; j++ {
+					t.mutex[newCount].Lock()
+					runtime.Gosched()
+					t.mutex[newCount].Unlock()
+				}
+			}
+		}()
+	}
 }
 
 func Main(name string, args []string) {
@@ -23,4 +58,13 @@ func Main(name string, args []string) {
 
 	commandlLine.Author("guonaihong https://github.com/guonaihong/sysbench2")
 	commandlLine.Parse(args)
+
+	t := threads{
+		maxThreads:   *maxThreads,
+		maxRequests:  *maxRequests,
+		threadYields: *threadYields,
+		threadlocks:  *threadlocks,
+	}
+
+	t.run()
 }
